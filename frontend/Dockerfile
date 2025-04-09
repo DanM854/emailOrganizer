@@ -8,7 +8,7 @@ RUN if [ ! -f package.json ]; then \
       npm install -g @angular/cli && \
       ng new temp-project --skip-git --style=scss --routing=true && \
       cp -r temp-project/* . && \
-      cp -r temp-project/.* . && \
+      find temp-project -maxdepth 1 -name ".*" -type f -exec cp {} . \; && \
       rm -rf temp-project && \
       npm install; \
     else \
