@@ -1,0 +1,40 @@
+<div class="email-container">
+  <!-- Header -->
+  <header class="header">
+    <div class="logo">Email Organize</div>
+    <div class="nav-links">
+      <a routerLink="/dashboard" class="nav-link active">Dashboard</a>
+      <a routerLink="/kanban" class="nav-link">Kanban</a>
+      <a routerLink="/login" class="nav-link login-link">Iniciar Sesión</a>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <h2 class="section-title">Bandeja de Entrada</h2>
+
+    <div class="email-list">
+      @for (email of emails; track email.id) {
+        <div class="email-item" [class.read]="email.isRead" (click)="classifyEmail(email.id)">
+          <div class="email-content">
+            <div class="email-subject">{{ email.subject }}</div>
+            <div class="email-sender">{{ email.sender }}</div>
+          </div>
+        </div>
+      }
+      @empty {
+        <div class="no-emails">No hay correos en la bandeja de entrada</div>
+      }
+    </div>
+
+    <div class="email-actions">
+      <div class="email-status">{{ classifiedEmails }} email{{ classifiedEmails !== 1 ? 's' : '' }} clasificado{{ classifiedEmails !== 1 ? 's' : '' }}</div>
+      <div class="action-buttons">
+        <button class="btn-action">• Classifier <span class="dropdown-arrow">▼</span></button>
+        <button class="btn-action">Report •</button>
+        <button class="btn-action">Feedback</button>
+        <button class="btn-clean" (click)="cleanInbox()">Limpiar</button>
+      </div>
+    </div>
+  </main>
+</div>
