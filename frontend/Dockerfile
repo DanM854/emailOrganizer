@@ -15,10 +15,6 @@ RUN if [ ! -f package.json ]; then \
       npm install; \
     fi
 
-<<<<<<< HEAD
-CMD ["npm", "start", "--", "--host", "0.0.0.0"]
-=======
 CMD ["npm", "start", "--", "--host", "0.0.0.0"]
 
 #prueba
->>>>>>> 8d69724f3c02767047dbf0481459aea4a899185c
