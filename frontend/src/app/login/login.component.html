@@ -1,0 +1,60 @@
+<div class="login-container">
+  <div class="login-card">
+    <h2>Iniciar Sesión</h2>
+
+    <form (ngSubmit)="onSubmit()" #loginForm="ngForm">
+      <div class="form-group">
+        <label for="username">Nombre de Usuario</label>
+        <input
+          type="text"
+          id="username"
+          name="username"
+          [(ngModel)]="loginData.username"
+          required
+          placeholder="Ingresa tu nombre de usuario"
+          #usernameInput="ngModel"
+        >
+        <div *ngIf="usernameInput.invalid && (usernameInput.dirty || usernameInput.touched)" 
+             class="error-message">
+          El nombre de usuario es requerido
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Contraseña</label>
+        <input
+          type="password"
+          id="password"
+          name="password"
+          [(ngModel)]="loginData.password"
+          required
+          minlength="6"
+          placeholder="Ingresa tu contraseña"
+          #passwordInput="ngModel"
+        >
+        <div *ngIf="passwordInput.invalid && (passwordInput.dirty || passwordInput.touched)" 
+             class="error-message">
+          La contraseña debe tener al menos 6 caracteres
+        </div>
+      </div>
+
+      <div *ngIf="errorMessage" class="error-message">
+        {{ errorMessage }}
+      </div>
+
+      <div class="form-actions">
+        <button 
+          type="submit" 
+          class="btn-login" 
+          [disabled]="!loginForm.valid || isLoading"
+        >
+          {{ isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión' }}
+        </button>
+      </div>
+
+      <p class="register-link">
+        ¿No tienes cuenta? <a routerLink="/register">Regístrate aquí</a>
+      </p>
+    </form>
+  </div>
+</div>
