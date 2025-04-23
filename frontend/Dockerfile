@@ -16,3 +16,5 @@ RUN if [ ! -f package.json ]; then \
     fi
 
 CMD ["npm", "start", "--", "--host", "0.0.0.0"]
+
+#prueba
