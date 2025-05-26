@@ -180,3 +180,4 @@ if __name__ == '__main__':
     # Usa un servidor WSGI (Gunicorn, uWSGI) para producción
     # app.run(port=5000) # Para probar SIN debug
     app.run(debug=True, port=5000)  # Para desarrollo local
+    #normalizado
