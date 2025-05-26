@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ Salvador ]
+    branches: [ Salvador-2 ]
   pull_request:
-    branches: [ Salvador ]
+    branches: [ Salvador-2 ]
 
 jobs:
   lint:
