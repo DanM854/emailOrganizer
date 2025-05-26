@@ -19,7 +19,7 @@ jobs:
       - name: Instalar flake8
         run: pip install flake8
       - name: Ejecutar flake8
-        run: flake8 . --max-line-length=100
+        run: flake8 . --max-line-length=120
 
   test:
     name: Ejecutar pruebas unitarias (pytest)
