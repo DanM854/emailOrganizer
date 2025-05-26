@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ Salvador-2 ]
+    branches: [ Salvador-2 ] # Ahora se dispara en tu rama Salvador-2
   pull_request:
     branches: [ Salvador-2 ]
 
@@ -19,6 +19,7 @@ jobs:
       - name: Instalar flake8
         run: pip install flake8
       - name: Ejecutar flake8
+        # Asumiendo que quieres escanear todo el repositorio desde la raíz
         run: flake8 . --max-line-length=120
 
   #test:
@@ -36,11 +37,11 @@ jobs:
   #    - name: Ejecutar pruebas
   #      run: pytest
 
-  # NEW: Job for Static Application Security Testing (SAST)
+  # Job para Static Application Security Testing (SAST)
   sast:
     name: Escaneo de Seguridad de Código (Bandit)
     runs-on: ubuntu-latest
-    needs: [lint] # Run after linting and testing
+    needs: [lint] # Se ejecuta después del linting
     steps:
       - uses: actions/checkout@v3
       - name: Configurar Python
@@ -50,53 +51,57 @@ jobs:
       - name: Instalar Bandit
         run: pip install bandit
       - name: Ejecutar Bandit
-        run: bandit -r . -ll -f json -o bandit-results.json # Allow failure for now, review results
-      - name: Subir resultados de Bandit (opcional, para Code Scanning)
+        # Se ejecuta desde la raíz del repositorio.
+        # Bandit escaneará todo el código Python, incluyendo el de 'backend/'.
+        # El archivo 'bandit-results.json' se creará en la raíz del runner.
+        run: bandit -r . -ll -f json -o bandit-results.json
+      - name: Subir resultados de Bandit a Code Scanning (opcional)
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: bandit-results.json
-      - name: Upload Bandit Results
-        uses: actions/upload-artifact@v3 # Usa la acción para subir artefactos
+      - name: Upload Bandit Results as Artifact
+        uses: actions/upload-artifact@v4 # <--- ¡CAMBIO AQUÍ: de v3 a v4!
         with:
-          name: bandit-sast-results # Nombre que verás en la interfaz de GitHub Actions
-          path: bandit-results.json # La ruta al archivo que quieres guardar
-        # Si el archivo está en una subcarpeta (ej. backend/bandit-results.json), especifica la ruta completa
-        # path: backend/bandit-results.json
-        # Opcional: para que este paso siempre se ejecute, incluso si Bandit falla (exit code 1)
-        # if: always()
-  # NEW: Job for Dependency Scanning
+          name: bandit-sast-results
+          path: bandit-results.json # La ruta es correcta si Bandit se ejecuta desde la raíz
+
+  # Job para Dependency Scanning
   dependency-scan:
     name: Escaneo de Dependencias (pip-audit)
     runs-on: ubuntu-latest
-    needs: [lint] # Can run in parallel with SAST
+    needs: [lint] # Puede ejecutarse en paralelo con SAST
     steps:
       - uses: actions/checkout@v3
       - name: Configurar Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-      - name: Instalar dependencias
-        run:  |
+      - name: Instalar dependencias de backend
+        # Es crucial cambiar al directorio 'backend/' para encontrar requirements.txt
+        run: |
           cd backend/
           pip install -r requirements.txt
       - name: Instalar pip-audit
+        # Este 'run' se ejecuta desde la raíz del repositorio por defecto
         run: pip install pip-audit
       - name: Ejecutar pip-audit
-        run: pip-audit --strict # Allow failure for now, review results
+        # pip-audit escaneará las dependencias instaladas en el entorno del runner,
+        # que incluyen las de backend/requirements.txt.
+        run: pip-audit --strict
 
   #deploy:
     #name: Despliegue automático en AWS
     #runs-on: ubuntu-latest
-    #needs: [lint, test, sast, dependency-scan] # Ensure security scans pass before deploying
+    #needs: [lint, test, sast, dependency-scan] # Asegurar que los escaneos de seguridad pasen antes del despliegue
     #steps:
     #- uses: actions/checkout@v3
     #- name: Configurar Python
     #  uses: actions/setup-python@v4
-    # with:
+    #  with:
     #    python-version: '3.10'
     #- name: Verificar credenciales AWS
     #  uses: aws-actions/configure-aws-credentials@v4
-    # with:
+    #  with:
     #    aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
     #    aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
     #    aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
