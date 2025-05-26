@@ -68,7 +68,9 @@ jobs:
         with:
           python-version: '3.10'
       - name: Instalar dependencias
-        run: pip install -r requirements.txt
+        run: 
+          cd backend/
+          pip install -r requirements.txt
       - name: Instalar pip-audit
         run: pip install pip-audit
       - name: Ejecutar pip-audit
