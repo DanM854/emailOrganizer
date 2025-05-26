@@ -73,10 +73,3 @@ jobs:
         # pip-audit escaneará las dependencias instaladas en el entorno del runner,
         # que incluyen las de backend/requirements.txt.
         run: pip-audit --strict
-
-    #- name: Desplegar lambda
-    #  run: |
-    #    python -m venv venv
-    #    source venv/bin/activate
-    #    pip install zappa boto3
-    #    zappa update dev --settings_file zappa_settings.json
