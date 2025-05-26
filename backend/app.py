@@ -11,7 +11,7 @@ from flask_cors import CORS
 
 # Cargar variables de entorno
 load_dotenv()
-
+print("Cargando variables de entorno")
 # Inicializar Flask
 app = Flask(__name__)
 CORS(app)  # Configurar CORS
