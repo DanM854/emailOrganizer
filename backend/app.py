@@ -18,19 +18,25 @@ CORS(app)  # Configurar CORS
 # --- Configuración de Resend ---
 resend_api_key = os.getenv("RESEND_API_KEY")
 if not resend_api_key:
-    raise ValueError("RESEND_API_KEY no está configurada en las variables de entorno.")
+    raise ValueError(
+        "RESEND_API_KEY no está configurada en las variables de entorno."
+    )
 # Corrección: resend es un módulo, su clase principal es Resend
 resend_client = resend.Resend(api_key=resend_api_key)
 
 sender_email = os.getenv("SENDER_EMAIL")
 if not sender_email:
-    raise ValueError("SENDER_EMAIL no está configurada en las variables de entorno.")
+    raise ValueError(
+        "SENDER_EMAIL no está configurada en las variables de entorno."
+    )
 
 
 # --- Configuración de Redis ---
 redis_url = os.getenv("REDIS_URL")
 if not redis_url:
-    raise ValueError("REDIS_URL no está configurada en las variables de entorno.")
+    raise ValueError(
+        "REDIS_URL no está configurada en las variables de entorno."
+    )
 
 # Conectar a Redis
 # Usar decode_responses=True para obtener strings en lugar de bytes
@@ -41,7 +47,8 @@ try:
     print("Conexión a Redis exitosa!")
 except redis.exceptions.ConnectionError as e:
     print(f"Error al conectar a Redis: {e}")
-    # En producción, es probable que quieras que la aplicación falle si no puede conectar a la DB/Cache
+    # En producción, es probable que quieras que la aplicación falle
+    # si no puede conectar a la DB/Cache
     # raise e
 
 
@@ -76,10 +83,13 @@ def request_2fa():
     user_email = data.get('userEmail')
 
     if not user_id or not user_email:
-        return jsonify({"success": False, "message": "userId y userEmail son requeridos"}), 400
+        return jsonify(
+            {"success": False, "message": "userId y userEmail son requeridos"}
+        ), 400
 
-    # En un escenario real, verificarías si el user_id existe en tu base de datos principal
-    # y obtendrías el user_email asociado de forma segura para evitar enumeración de usuarios.
+    # En un escenario real, verificarías si el user_id existe en tu
+    # base de datos principal y obtendrías el user_email asociado
+    # de forma segura para evitar enumeración de usuarios.
 
     try:
         # 1. Generar un código OTP seguro de 6 dígitos
@@ -115,14 +125,18 @@ def request_2fa():
 
             # Resend exitoso devuelve un objeto con 'id' y 'from'
             if result and 'id' in result:
-                return jsonify({"success": True, "message": "Código enviado al correo electrónico."}), 200
+                return jsonify(
+                    {"success": True, "message": "Código enviado al correo electrónico."}
+                ), 200
             else:
                 # Manejar casos donde Resend no lanza excepción pero la respuesta no es la esperada
                 print(f"Resend no reportó error pero la respuesta fue inesperada: {result}")
                 # Limpiar código si el envío parece fallido aunque no hubo excepción
                 redis_client.delete(otp_key)
                 return jsonify(
-                    {"success": False, "message": "Error al enviar el código. Intenta de nuevo."}), 500
+                    {"success": False,
+                     "message": "Error al enviar el código. Intenta de nuevo."}
+                ), 500
 
         except Exception as e:
             print(f"Error al enviar correo con Resend: {e}")
@@ -132,7 +146,10 @@ def request_2fa():
 
     except Exception as e:
         print(f"Error general en /request-2fa: {e}")
-        return jsonify({"success": False, "message": f"Ocurrió un error al procesar la solicitud: {e}"}), 500
+        return jsonify(
+            {"success": False,
+             "message": f"Ocurrió un error al procesar la solicitud: {e}"}
+        ), 500
 
 
 # --- Endpoint para verificar el código 2FA ---
@@ -147,7 +164,9 @@ def verify_2fa():
     entered_code = data.get('code')
 
     if not user_id or not entered_code:
-        return jsonify({"success": False, "message": "userId y code son requeridos"}), 400
+        return jsonify(
+            {"success": False, "message": "userId y code son requeridos"}
+        ), 400
 
     # --- Aquí podrías implementar la lógica de contador de intentos fallidos con Redis ---
     # Esto es CRÍTICO para prevenir ataques de fuerza bruta.
@@ -166,10 +185,11 @@ def verify_2fa():
     stored_code = redis_client.get(otp_key)  # Devuelve None si no existe o ya expiró
 
     if not stored_code:
-        print(f"Intento de verificación para {user_id} - Código no encontrado o expirado en Redis.")
+        print(f"Intento de verificación para {user_id} - "
+              f"Código no encontrado o expirado en Redis.")
         # --- Incrementar contador de intentos fallidos si aplica ---
         # redis_client.incr(failed_attempts_key)
-        # redis_client.expire(failed_attempts_key, FAILED_ATTEMPTS_COOLDOWN_SECONDS) # Opcional: expirar el contador también
+        # redis_client.expire(FAILED_ATTEMPTS_COOLDOWN_SECONDS) # Opcional: expirar el contador también
         # -----------------------------------------------------------
         return jsonify({"success": False, "message": "Código inválido o ha expirado."}), 400
 
@@ -188,7 +208,7 @@ def verify_2fa():
         print(f"Intento de verificación para {user_id} - Código incorrecto.")
         # --- Incrementar contador de intentos fallidos si aplica ---
         # redis_client.incr(failed_attempts_key)
-        # redis_client.expire(failed_attempts_key, FAILED_ATTEMPTS_COOLDOWN_SECONDS) # Opcional
+        # redis_client.expire(FAILED_ATTEMPTS_COOLDOWN_SECONDS) # Opcional
         # -----------------------------------------------------------
         return jsonify({"success": False, "message": "Código inválido."}), 400
 
