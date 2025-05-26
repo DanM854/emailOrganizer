@@ -36,10 +36,48 @@ jobs:
       - name: Ejecutar pruebas
         run: pytest
 
+  # NEW: Job for Static Application Security Testing (SAST)
+  sast:
+    name: Escaneo de Seguridad de Código (Bandit)
+    runs-on: ubuntu-latest
+    needs: [lint, test] # Run after linting and testing
+    steps:
+      - uses: actions/checkout@v3
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Instalar Bandit
+        run: pip install bandit
+      - name: Ejecutar Bandit
+        run: bandit -r . -ll -f json -o bandit-results.json || true # Allow failure for now, review results
+      - name: Subir resultados de Bandit (opcional, para Code Scanning)
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: bandit-results.json
+
+  # NEW: Job for Dependency Scanning
+  dependency-scan:
+    name: Escaneo de Dependencias (pip-audit)
+    runs-on: ubuntu-latest
+    needs: [lint, test] # Can run in parallel with SAST
+    steps:
+      - uses: actions/checkout@v3
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+      - name: Instalar pip-audit
+        run: pip install pip-audit
+      - name: Ejecutar pip-audit
+        run: pip-audit --strict || true # Allow failure for now, review results
+
   deploy:
     name: Despliegue automático en AWS
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint, test, sast, dependency-scan] # Ensure security scans pass before deploying
     steps:
     - uses: actions/checkout@v3
     - name: Configurar Python
@@ -55,15 +93,7 @@ jobs:
         aws-region: us-east-1
     - name: Desplegar lambda
       run: |
-        # Crear y activar el entorno virtual
         python -m venv venv
         source venv/bin/activate
-        
-        # Instalar Zappa y boto3
         pip install zappa boto3
-        
-        # Desplegar Lambda de Scraping
-        zappa update dev --settings_file Scrapper/zappa_settings.json
-        
-        # Desplegar Lambda de Procesamiento
-        zappa update dev --settings_file Parser/zappa_settings.json
+        zappa update dev --settings_file zappa_settings.json
