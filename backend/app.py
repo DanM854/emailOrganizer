@@ -97,10 +97,11 @@ def request_2fa():
 
         # 2. Almacenar el código en Redis con expiración automática
         otp_key = get_otp_key(user_id)
-        # Guardamos el código en Redis. EX (expire) establece el tiempo de vida en segundos.
+        # Guardamos el código en Redis. EX (expire) establece el tiempo de vida
+        # en segundos.
         redis_client.set(otp_key, otp_code, ex=OTP_EXPIRY_SECONDS)
         print(f"Código generado para {user_id}: {otp_code}. "
-              f"Almacenado en Redis con expiración.")
+              "Almacenado en Redis con expiración.")
 
         # 3. Enviar el código por correo usando Resend
         try:
@@ -126,11 +127,14 @@ def request_2fa():
             # Resend exitoso devuelve un objeto con 'id' y 'from'
             if result and 'id' in result:
                 return jsonify(
-                    {"success": True, "message": "Código enviado al correo electrónico."}
+                    {"success": True,
+                     "message": "Código enviado al correo electrónico."}
                 ), 200
             else:
-                # Manejar casos donde Resend no lanza excepción pero la respuesta no es la esperada
-                print(f"Resend no reportó error pero la respuesta fue inesperada: {result}")
+                # Manejar casos donde Resend no lanza excepción pero la respuesta
+                # no es la esperada
+                print("Resend no reportó error pero la respuesta fue inesperada: "
+                      f"{result}")
                 # Limpiar código si el envío parece fallido aunque no hubo excepción
                 redis_client.delete(otp_key)
                 return jsonify(
@@ -140,9 +144,12 @@ def request_2fa():
 
         except Exception as e:
             print(f"Error al enviar correo con Resend: {e}")
-            # Limpiar el código almacenado si falla el envío para evitar códigos "huérfanos"
+            # Limpiar el código almacenado si falla el envío
+            # para evitar códigos "huérfanos"
             redis_client.delete(otp_key)
-            return jsonify({"success": False, "message": f"Error al enviar el código: {e}"}), 500
+            return jsonify(
+                {"success": False, "message": f"Error al enviar el código: {e}"}
+            ), 500
 
     except Exception as e:
         print(f"Error general en /request-2fa: {e}")
@@ -168,7 +175,8 @@ def verify_2fa():
             {"success": False, "message": "userId y code son requeridos"}
         ), 400
 
-    # --- Aquí podrías implementar la lógica de contador de intentos fallidos con Redis ---
+    # --- Aquí podrías implementar la lógica de contador de intentos fallidos
+    # con Redis ---
     # Esto es CRÍTICO para prevenir ataques de fuerza bruta.
     # Ejemplo conceptual:
     # MAX_ATTEMPTS = 5
@@ -177,8 +185,9 @@ def verify_2fa():
     # current_attempts = redis_client.get(failed_attempts_key)
     # if current_attempts and int(current_attempts) >= MAX_ATTEMPTS:
     #     return jsonify({"success": False,
-    #                     "message": "Demasiados intentos fallidos. Intenta más tarde."}), 429
-    # ---------------------------------------------------------------------------------
+    #                     "message": "Demasiados intentos fallidos. "
+    #                                "Intenta más tarde."}), 429
+    # ---------------------------------------------------------------------
 
     # 1. Obtener el código almacenado de Redis
     otp_key = get_otp_key(user_id)
@@ -186,31 +195,41 @@ def verify_2fa():
 
     if not stored_code:
         print(f"Intento de verificación para {user_id} - "
-              f"Código no encontrado o expirado en Redis.")
+              "Código no encontrado o expirado en Redis.")
         # --- Incrementar contador de intentos fallidos si aplica ---
         # redis_client.incr(failed_attempts_key)
-        # redis_client.expire(FAILED_ATTEMPTS_COOLDOWN_SECONDS) # Opcional: expirar el contador también
+        # redis_client.expire(FAILED_ATTEMPTS_COOLDOWN_SECONDS) # Opcional
         # -----------------------------------------------------------
-        return jsonify({"success": False, "message": "Código inválido o ha expirado."}), 400
+        return jsonify(
+            {"success": False, "message": "Código inválido o ha expirado."}
+        ), 400
 
     # 2. Comparar el código ingresado con el almacenado de forma segura
     # secrets.compare_digest previene ataques de temporización (timing attacks)
-    if secrets.compare_digest(entered_code.encode('utf-8'), stored_code.encode('utf-8')):
+    if secrets.compare_digest(
+        entered_code.encode('utf-8'), stored_code.encode('utf-8')
+    ):
         print(f"Verificación 2FA exitosa para {user_id}.")
-        # 3. Eliminar el código de Redis después de una verificación exitosa (IMPORTANTE)
+        # 3. Eliminar el código de Redis después de una verificación
+        # exitosa (IMPORTANTE)
         redis_client.delete(otp_key)
         # --- Resetear contador de intentos fallidos si aplica ---
         # redis_client.delete(failed_attempts_key)
         # ---------------------------------------------------------
-        # Aquí marcarías al usuario como 2FA verificado en tu sistema de autenticación principal
-        return jsonify({"success": True, "verified": True, "message": "Verificación exitosa."}), 200
+        # Aquí marcarías al usuario como 2FA verificado en tu sistema
+        # de autenticación principal
+        return jsonify(
+            {"success": True, "verified": True, "message": "Verificación exitosa."}
+        ), 200
     else:
         print(f"Intento de verificación para {user_id} - Código incorrecto.")
         # --- Incrementar contador de intentos fallidos si aplica ---
         # redis_client.incr(failed_attempts_key)
         # redis_client.expire(FAILED_ATTEMPTS_COOLDOWN_SECONDS) # Opcional
         # -----------------------------------------------------------
-        return jsonify({"success": False, "message": "Código inválido."}), 400
+        return jsonify(
+            {"success": False, "message": "Código inválido."}
+        ), 400
 
 
 # --- Ejecutar la aplicación ---
@@ -219,3 +238,4 @@ if __name__ == '__main__':
     # Usa un servidor WSGI (Gunicorn, uWSGI) para producción.
     # Ejemplo para producción: app.run(host='0.0.0.0', port=5000)
     app.run(debug=True, port=5000)  # Para desarrollo local
+    
