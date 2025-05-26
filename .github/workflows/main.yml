@@ -55,7 +55,15 @@ jobs:
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: bandit-results.json
-
+      - name: Upload Bandit Results
+        uses: actions/upload-artifact@v3 # Usa la acción para subir artefactos
+        with:
+          name: bandit-sast-results # Nombre que verás en la interfaz de GitHub Actions
+          path: bandit-results.json # La ruta al archivo que quieres guardar
+        # Si el archivo está en una subcarpeta (ej. backend/bandit-results.json), especifica la ruta completa
+        # path: backend/bandit-results.json
+        # Opcional: para que este paso siempre se ejecute, incluso si Bandit falla (exit code 1)
+        # if: always()
   # NEW: Job for Dependency Scanning
   dependency-scan:
     name: Escaneo de Dependencias (pip-audit)
