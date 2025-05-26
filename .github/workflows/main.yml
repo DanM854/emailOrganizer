@@ -64,7 +64,7 @@ jobs:
         with:
           name: bandit-sast-results
           path: bandit-results.json # La ruta es correcta si Bandit se ejecuta desde la raíz
-
+        if: always()
   # Job para Dependency Scanning
   dependency-scan:
     name: Escaneo de Dependencias (pip-audit)
