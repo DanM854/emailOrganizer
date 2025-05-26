@@ -10,6 +10,8 @@ export const AuthProvider = ({ children }) => {
   const [accessToken, setAccessToken] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [requiresTwoFactor, setRequiresTwoFactor] = useState(false); // Indica si se necesita 2FA
+  const [userIdFor2FA, setUserIdFor2FA] = useState(null); // Para saber qué usuario necesita 2FA
   const [labels, setLabels] = useState([]);
   const [emails, setEmails] = useState([]);
   const [kanbanColumns, setKanbanColumns] = useState({
@@ -112,23 +114,99 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Manejar la respuesta de autenticación de Google
-  const handleGoogleCallback = (response) => {
-    console.log('Respuesta de Google Identity Services recibida');
-    
-    if (response.credential) {
-      // Decodificar el token JWT para obtener la información del usuario
-      const decodedToken = parseJwt(response.credential);
-      
-      setUser(decodedToken);
-      setIsSignedIn(true);
-      
-      console.log('Usuario autenticado correctamente:', decodedToken);
+// Manejar la respuesta de autenticación de Google
+const handleGoogleCallback = async (response) => { // <<< Hacerla async
+  console.log('Respuesta de Google Identity Services recibida');
+
+  if (response.credential) {
+    const decodedToken = parseJwt(response.credential);
+
+    if (decodedToken) {
+        console.log('Usuario autenticado con Google:', decodedToken);
+
+        // --- NUEVA LÓGICA: Enviar información de Google al backend para verificar el estado 2FA ---
+        setLoading(true); // Mostrar loading mientras el backend procesa
+        setError(null); // Limpiar errores previos
+
+        try {
+            const backendResponse = await fetch('http://127.0.0.1:5000/auth/google-callback', { // <<< URL de tu NUEVO endpoint en Python
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                // Puedes enviar el ID token o la información decodificada
+                body: JSON.stringify({ googleIdToken: response.credential, googleUser: decodedToken }),
+            });
+
+            const backendData = await backendResponse.json();
+
+            if (backendResponse.ok) { // Si la respuesta del backend es exitosa (status 2xx)
+                if (backendData.status === '2fa_required') {
+                    // El backend dice que se necesita 2FA
+                    setRequiresTwoFactor(true);
+                    // Guardamos el user ID que el backend nos devuelve para usarlo en la solicitud del código 2FA
+                    setUserIdFor2FA(backendData.userId);
+                    setUser(decodedToken); // Puedes guardar la info básica del usuario
+                    setIsSignedIn(false); // Aún no está "signed in" completamente
+                    console.log('Backend requiere doble factor.');
+
+                } else if (backendData.status === 'login_success') {
+                     // El backend dice que el login (incluyendo 2FA si estaba habilitado y ya se pasó) es exitoso
+                     // Aquí el backend debería haber devuelto un token de sesión de tu app
+                     setIsSignedIn(true); // Ahora sí está signed in completamente
+                     setUser(decodedToken); // Info del usuario
+                     setAccessToken(backendData.accessToken); // Si tu backend da un token para Gmail API, úsalo
+                     setRequiresTwoFactor(false); // No necesita 2FA
+                     setUserIdFor2FA(null); // Limpiar ID
+                     console.log('Login completo exitoso con backend.');
+                     // Aquí podrías llamar automáticamente a handleGetGmailAccess() si siempre necesitas el token de Gmail API justo después del login
+                     // handleGetGmailAccess(); // O puedes hacerlo en un useEffect o componente principal
+
+                } else {
+                    // Otro estado desconocido del backend
+                    setError('Respuesta de backend inesperada');
+                    setIsSignedIn(false);
+                    setUser(null);
+                    setRequiresTwoFactor(false);
+                    setUserIdFor2FA(null);
+                }
+            } else { // Si el backend devuelve un error (status 4xx, 5xx)
+                setError(backendData.message || 'Error en el backend durante el callback de Google.');
+                setIsSignedIn(false);
+                setUser(null);
+                setRequiresTwoFactor(false);
+                setUserIdFor2FA(null);
+            }
+
+        } catch (error) {
+            console.error('Error al comunicar con el backend después del login de Google:', error);
+            setError(`Error en la comunicación con el servidor: ${error.message || 'Error desconocido'}`);
+            setIsSignedIn(false);
+            setUser(null);
+            setRequiresTwoFactor(false);
+            setUserIdFor2FA(null);
+        } finally {
+            setLoading(false); // Ocultar loading
+        }
+        // --- FIN DE NUEVA LÓGICA ---
+
     } else {
+      setError('No se pudo decodificar el token de Google.');
       setIsSignedIn(false);
       setUser(null);
-      setError('No se pudo obtener las credenciales del usuario');
+      setRequiresTwoFactor(false);
+      setUserIdFor2FA(null);
+      setLoading(false);
     }
-  };
+  } else {
+    setIsSignedIn(false);
+    setUser(null);
+    setError('No se pudo obtener las credenciales del usuario de Google.');
+    setRequiresTwoFactor(false);
+    setUserIdFor2FA(null);
+    setLoading(false);
+  }
+};
 
   // Función auxiliar para decodificar el token JWT
   const parseJwt = (token) => {

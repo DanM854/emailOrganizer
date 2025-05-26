@@ -1,7 +1,8 @@
-// src/components/Dashboard.js - Componente para la vista principal
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import EmailView from './EmailView';
+import SendEmail from './SendEmail';
 import '../styles/Dashboard.css';
 
 function Dashboard() {
@@ -22,9 +23,12 @@ function Dashboard() {
     setError
   } = useAuth();
   
-  const [selectedLabel, setSelectedLabel] = useState('INBOX');
+  const [selectedLabel, setSelectedLabel] = useState(null);
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [emailsLoading, setEmailsLoading] = useState(false);
+  const [showSendEmail, setShowSendEmail] = useState(false);
+  const [emailToSend, setEmailToSend] = useState(null);
+  const [allEmails, setAllEmails] = useState([]);
   
   const navigate = useNavigate();
 
@@ -37,11 +41,35 @@ function Dashboard() {
     }
   }, [loading, isSignedIn, error, renderSignInButton]);
 
+  // Al obtener acceso, guardar todos los correos
+  useEffect(() => {
+    if (emails.length > 0 && selectedLabel === null) {
+      setAllEmails(emails);
+    }
+  }, [emails, selectedLabel]);
+
   // Cambiar etiqueta seleccionada
   const handleLabelChange = (labelId) => {
-    setSelectedLabel(labelId);
+    if (selectedLabel === labelId) {
+      setSelectedLabel(null);
+      setEmailsLoading(true);
+      fetchGmailMessages('INBOX').finally(() => {
+        setEmailsLoading(false);
+      });
+    } else {
+      setSelectedLabel(labelId);
+      setEmailsLoading(true);
+      fetchGmailMessages(labelId).finally(() => {
+        setEmailsLoading(false);
+      });
+    }
+  };
+
+  // Quitar selección de etiqueta
+  const handleRemoveFilter = () => {
+    setSelectedLabel(null);
     setEmailsLoading(true);
-    fetchGmailMessages(labelId).finally(() => {
+    fetchGmailMessages('INBOX').finally(() => {
       setEmailsLoading(false);
     });
   };
@@ -63,6 +91,16 @@ function Dashboard() {
     navigate('/kanban');
   };
 
+  // Manejar respuesta a correo
+  const handleReply = (replyData) => {
+    setSelectedEmail(null);
+    setEmailToSend({
+      initialData: replyData,
+      threadId: selectedEmail?.threadId
+    });
+    setShowSendEmail(true);
+  };
+
   return (
     <div className="dashboard-container">
       <header className="app-header">
@@ -72,6 +110,15 @@ function Dashboard() {
           <div className="nav-links">
             <Link to="/" className="nav-link active">Bandeja de entrada</Link>
             <Link to="/kanban" className="nav-link">Tablero Kanban</Link>
+            <button 
+              onClick={() => {
+                setShowSendEmail(true);
+                setEmailToSend(null);
+              }}
+              className="nav-link send-email-button"
+            >
+              Nuevo Correo
+            </button>
           </div>
         )}
       </header>
@@ -124,7 +171,17 @@ function Dashboard() {
             ) : (
               <div className="email-container">
                 <div className="labels-container">
-                  <h3>Etiquetas</h3>
+                  <div className="labels-header">
+                    <h3>Etiquetas</h3>
+                    {selectedLabel && (
+                      <button 
+                        className="remove-filter-button"
+                        onClick={handleRemoveFilter}
+                      >
+                        Quitar filtro
+                      </button>
+                    )}
+                  </div>
                   <div className="labels-list">
                     {labels.map(label => (
                       <button
@@ -138,7 +195,14 @@ function Dashboard() {
                   </div>
                 </div>
                 
-                <h3>Correos de {translateLabelName(labels.find(l => l.id === selectedLabel)?.name || selectedLabel)}</h3>
+                <div className="emails-header">
+                  <h3>
+                    {selectedLabel 
+                      ? `Correos de ${translateLabelName(labels.find(l => l.id === selectedLabel)?.name || selectedLabel)}`
+                      : 'Todos los correos'
+                    }
+                  </h3>
+                </div>
                 
                 {emailsLoading ? (
                   <p>Cargando correos...</p>
@@ -182,46 +246,21 @@ function Dashboard() {
         )}
 
         {selectedEmail && (
-          <div className="email-view-overlay">
-            <div className="email-view">
-              <div className="email-view-header">
-                <h2>{selectedEmail.subject}</h2>
-                <div className="email-view-actions">
-                  <button 
-                    className="email-action-button add-to-kanban"
-                    onClick={() => {
-                      handleAddToKanban(selectedEmail);
-                      handleCloseEmail();
-                    }}
-                  >
-                    Añadir al Kanban
-                  </button>
-                  <button className="close-button" onClick={handleCloseEmail}>×</button>
-                </div>
-              </div>
-              
-              <div className="email-view-metadata">
-                <div className="email-view-from">
-                  <strong>De:</strong> {selectedEmail.from}
-                </div>
-                <div className="email-view-date">
-                  <strong>Fecha:</strong> {selectedEmail.date}
-                </div>
-                <div className="email-view-labels">
-                  <strong>Etiquetas:</strong> {selectedEmail.labelIds.map(id => {
-                    const label = labels.find(l => l.id === id);
-                    return label ? translateLabelName(label.name) : id;
-                  }).join(', ')}
-                </div>
-              </div>
-              
-              <div className="email-view-body">
-                {selectedEmail.body.split('\n').map((line, index) => (
-                  <p key={index}>{line}</p>
-                ))}
-              </div>
-            </div>
-          </div>
+          <EmailView 
+            email={selectedEmail} 
+            onClose={handleCloseEmail}
+            onReply={handleReply}
+          />
+        )}
+
+        {showSendEmail && (
+          <SendEmail
+            {...emailToSend}
+            onClose={() => {
+              setShowSendEmail(false);
+              setEmailToSend(null);
+            }}
+          />
         )}
       </main>
     </div>

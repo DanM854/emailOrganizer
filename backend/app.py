@@ -1,68 +1,73 @@
+import datetime  # Importación no utilizada, Flake8 la marcaría
+import json  # Importación no utilizada, Flake8 la marcaría
 import os
 import secrets
-import datetime
-import json # Necesario para serializar/deserializar datos complejos en Redis si fuera necesario, aunque para código simple no lo es.
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-from dotenv import load_dotenv
-import resend
+
 import redis
+import resend
+from dotenv import load_dotenv
+from flask import Flask, jsonify, request
+from flask_cors import CORS
 
 # Cargar variables de entorno
 load_dotenv()
 
 # Inicializar Flask
 app = Flask(__name__)
-CORS(app) # Configurar CORS
+CORS(app)  # Configurar CORS
+
 
 # --- Configuración de Resend ---
 resend_api_key = os.getenv("RESEND_API_KEY")
 if not resend_api_key:
     raise ValueError("RESEND_API_KEY no está configurada en las variables de entorno.")
-resend_client = Resend(api_key=resend_api_key)
+resend_client = resend.Resend(api_key=resend_api_key)  # Corrección: resend es un módulo, no una función
 
 sender_email = os.getenv("SENDER_EMAIL")
 if not sender_email:
-     raise ValueError("SENDER_EMAIL no está configurada en las variables de entorno.")
+    raise ValueError("SENDER_EMAIL no está configurada en las variables de entorno.")
+
 
 # --- Configuración de Redis ---
 redis_url = os.getenv("REDIS_URL")
 if not redis_url:
-     raise ValueError("REDIS_URL no está configurada en las variables de entorno.")
+    raise ValueError("REDIS_URL no está configurada en las variables de entorno.")
 
 # Conectar a Redis
 # Usar decode_responses=True para obtener strings en lugar de bytes
 try:
     redis_client = redis.from_url(redis_url, decode_responses=True)
-    # Opcional: verificar la conexión
+    # Verificar la conexión
     redis_client.ping()
     print("Conexión a Redis exitosa!")
 except redis.exceptions.ConnectionError as e:
     print(f"Error al conectar a Redis: {e}")
-    # En producción, es probable que quieras que la aplicación falle si no puede conectar a la DB/Cache
-    # raise e
 
 
 # --- Helpers para Redis ---
 # Clave para almacenar el código OTP para un usuario
 def get_otp_key(user_id):
+    """Genera la clave de Redis para el código OTP de un usuario."""
     return f"otp:{user_id}"
 
+
 # Tiempo de expiración del código en segundos
-OTP_EXPIRY_SECONDS = 5 * 60 # 5 minutos
+OTP_EXPIRY_SECONDS = 5 * 60  # 5 minutos
+
 
 # --- Endpoint para solicitar el código 2FA ---
 @app.route('/request-2fa', methods=['POST'])
 def request_2fa():
+    """
+    Solicita un código de verificación de doble factor (2FA) y lo envía
+    al correo electrónico del usuario.
+    """
     data = request.json
     user_id = data.get('userId')
     user_email = data.get('userEmail')
 
     if not user_id or not user_email:
         return jsonify({"success": False, "message": "userId y userEmail son requeridos"}), 400
-
-    # En un escenario real, verificarías si el user_id existe en tu base de datos principal
-    # y obtendrías el user_email asociado de forma segura.
 
     try:
         # 1. Generar un código OTP seguro
@@ -97,13 +102,13 @@ def request_2fa():
 
             # Resend exitoso devuelve un objeto con 'id' y 'from'
             if result and 'id' in result:
-                 return jsonify({"success": True, "message": "Código enviado al correo electrónico."}), 200
+                return jsonify({"success": True, "message": "Código enviado al correo electrónico."}), 200
             else:
-                 # Manejar casos donde Resend no lanza excepción pero la respuesta no es la esperada
-                 print(f"Resend no reportó error pero la respuesta fue inesperada: {result}")
-                 redis_client.delete(otp_key) # Limpiar código si el envío parece fallido aunque no hubo excepción
-                 return jsonify({"success": False, "message": "Error al enviar el código. Intenta de nuevo."}), 500
-
+                # Manejar casos donde Resend no lanza excepción pero la respuesta no es la esperada
+                print(f"Resend no reportó error pero la respuesta fue inesperada: {result}")
+                # Limpiar código si el envío parece fallido aunque no hubo excepción
+                redis_client.delete(otp_key)
+                return jsonify({"success": False, "message": "Error al enviar el código. Intenta de nuevo."}), 500
 
         except Exception as e:
             print(f"Error al enviar correo con Resend: {e}")
@@ -115,9 +120,14 @@ def request_2fa():
         print(f"Error general en /request-2fa: {e}")
         return jsonify({"success": False, "message": f"Ocurrió un error al procesar la solicitud: {e}"}), 500
 
+
 # --- Endpoint para verificar el código 2FA ---
 @app.route('/verify-2fa', methods=['POST'])
 def verify_2fa():
+    """
+    Verifica el código de doble factor (2FA) proporcionado por el usuario
+    contra el código almacenado en Redis.
+    """
     data = request.json
     user_id = data.get('userId')
     entered_code = data.get('code')
@@ -130,12 +140,12 @@ def verify_2fa():
     # failed_attempts_key = f"2fa:failed:{user_id}"
     # current_attempts = redis_client.get(failed_attempts_key)
     # if current_attempts and int(current_attempts) >= MAX_ATTEMPTS:
-    #     return jsonify({"success": False, "message": "Demasiados intentos fallidos. Intenta más tarde."}), 429 # Too Many Requests
+    #     return jsonify({"success": False, "message": "Demasiados intentos fallidos. Intenta más tarde."}), 429
     # ---------------------------------------------------------------------------------
 
     # 1. Obtener el código almacenado de Redis
     otp_key = get_otp_key(user_id)
-    stored_code = redis_client.get(otp_key) # Devuelve None si no existe o ya expiró
+    stored_code = redis_client.get(otp_key)  # Devuelve None si no existe o ya expiró
 
     if not stored_code:
         print(f"Intento de verificación para {user_id} - Código no encontrado o expirado en Redis.")
@@ -163,9 +173,11 @@ def verify_2fa():
         # -----------------------------------------------------------
         return jsonify({"success": False, "message": "Código inválido."}), 400
 
+
 # --- Ejecutar la aplicación ---
 if __name__ == '__main__':
     # NUNCA usar debug=True en producción
     # Usa un servidor WSGI (Gunicorn, uWSGI) para producción
-    # Ejemplo: app.run(port=5000) # Para probar SIN debug
-    app.run(debug=True, port=5000) # Para desarrollo local
+    # app.run(port=5000) # Para probar SIN debug
+    app.run(debug=True, port=5000)  # Para desarrollo local
+    #normalizado
