@@ -22,6 +22,9 @@ jobs:
         # Asumiendo que quieres escanear todo el repositorio desde la raíz
         run: flake8 . --max-line-length=120
 
+
+  # Job para Static Application Security Testing (SAST)
+
   sast:
     name: Escaneo de Seguridad de Código (Bandit)
     runs-on: ubuntu-latest
