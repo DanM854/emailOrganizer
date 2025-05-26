@@ -40,7 +40,7 @@ jobs:
   sast:
     name: Escaneo de Seguridad de Código (Bandit)
     runs-on: ubuntu-latest
-    needs: [lint, test] # Run after linting and testing
+    needs: [lint] # Run after linting and testing
     steps:
       - uses: actions/checkout@v3
       - name: Configurar Python
@@ -60,7 +60,7 @@ jobs:
   dependency-scan:
     name: Escaneo de Dependencias (pip-audit)
     runs-on: ubuntu-latest
-    needs: [lint, test] # Can run in parallel with SAST
+    needs: [lint] # Can run in parallel with SAST
     steps:
       - uses: actions/checkout@v3
       - name: Configurar Python
