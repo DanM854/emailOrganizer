@@ -1,15 +1,18 @@
-// src/App.js - Componente principal con enrutamiento
-import React, { useState, useEffect } from 'react';
-import { Routes, Route, Link, useNavigate } from 'react-router-dom';
-import './App.css';
+// src/App.js
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
 import Dashboard from './components/Dashboard';
 import KanbanBoard from './components/KanbanBoard';
-import { AuthProvider } from './context/AuthContext';
+import AddAccountButton from './components/AddAccountButton';
 
 function App() {
   return (
     <AuthProvider>
-      <div className="app">
+      <div style={{ padding: '2rem' }}>
+        <h1>Email Organizer</h1>
+        <AddAccountButton />
+
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/kanban" element={<KanbanBoard />} />
